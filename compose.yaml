@@ -1,0 +1,6 @@
+﻿services:
+  audioexperienceenhancer:
+    image: audioexperienceenhancer
+    build:
+      context: .
+      dockerfile: AudioExperienceEnhancer/Dockerfile

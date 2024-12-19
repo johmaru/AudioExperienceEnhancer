@@ -42,6 +42,8 @@ public abstract class GetAudioDevicesCommand
 
     [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
     private static extern int snd_pcm_hw_params(IntPtr pcm, IntPtr @params);
+    [DllImport(LibraryName, CallingConvention = CallingConvention.Cdecl)]
+    private static extern int snd_pcm_prepare(IntPtr pcm);
     
     // windows externs
     
@@ -363,7 +365,7 @@ public abstract class GetAudioDevicesCommand
         else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
              IntPtr handle;
-             int err = snd_pcm_open(out handle, "default",SND_PCM_STREAM_PLAYBACK, 0);
+             int err = snd_pcm_open(out handle, "pulse",SND_PCM_STREAM_PLAYBACK, 1);
                
              if (err < 0)
              {
@@ -381,7 +383,7 @@ public abstract class GetAudioDevicesCommand
                      snd_pcm_close(handle);
                      return Task.CompletedTask;
                  }
-
+                 
                  err = snd_pcm_hw_params_any(handle, hwParams);
                  if (err < 0)
                  {
@@ -390,7 +392,7 @@ public abstract class GetAudioDevicesCommand
                      snd_pcm_close(handle);
                      return Task.CompletedTask;
                  }
-
+                 
                  err = snd_pcm_hw_params_set_access(handle, hwParams, SND_PCM_ACCESS_RW_INTERLEAVED);
                  if (err < 0)
                  {
@@ -399,7 +401,7 @@ public abstract class GetAudioDevicesCommand
                      snd_pcm_close(handle);
                      return Task.CompletedTask;
                  }
-
+                 
                  err = snd_pcm_hw_params_set_format(handle, hwParams, SND_PCM_FORMAT_S16_LE);
                  if (err < 0)
                  {
@@ -408,8 +410,7 @@ public abstract class GetAudioDevicesCommand
                      snd_pcm_close(handle);
                      return Task.CompletedTask;
                  }
-
-                  
+                 
                  err = snd_pcm_hw_params(handle, hwParams);
                  if (err < 0)
                  {
@@ -418,9 +419,28 @@ public abstract class GetAudioDevicesCommand
                      snd_pcm_close(handle);
                      return Task.CompletedTask;
                  }
+                 
+                 err = snd_pcm_prepare(handle);
+                 if (err < 0)
+                 {
+                     Console.WriteLine($"Error preparing PCM device: {err}");
+                     snd_pcm_hw_params_free(hwParams);
+                     snd_pcm_close(handle);
+                     return Task.CompletedTask;
+                 }
+
+                 err = snd_pcm_hw_params_current(handle, hwParams);
+                    if (err < 0)
+                    {
+                        Console.WriteLine($"Error getting current hw params: {err}");
+                        snd_pcm_hw_params_free(hwParams);
+                        snd_pcm_close(handle);
+                        return Task.CompletedTask;
+                    }
 
                  uint rate;
-                 err = snd_pcm_hw_params_get_rate(hwParams, out rate, out _);
+                 int dir = 0;
+                 err = snd_pcm_hw_params_get_rate(hwParams, out rate, out dir);
                  if (err < 0)
                  {
                      Console.WriteLine($"Error getting rate: {err}");
